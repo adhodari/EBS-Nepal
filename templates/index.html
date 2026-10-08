@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nepal EBS - Event-Based Surveillance</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-broadcast-tower"></i> Nepal EBS - Event-Based Surveillance</h1>
+            <p class="subtitle">Real-time health hazard monitoring from news media</p>
+            <div class="controls">
+                <button id="scanBtn" class="btn btn-primary"><i class="fas fa-sync"></i> Run Scan</button>
+                <button id="exportBtn" class="btn btn-secondary"><i class="fas fa-download"></i> Export CSV</button>
+                <span id="connectionStatus" class="status disconnected"><i class="fas fa-circle"></i> Disconnected</span>
+                <span id="lastScan" class="last-scan"></span>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="sidebar">
+                <div class="stats-card">
+                    <h3><i class="fas fa-chart-bar"></i> Statistics</h3>
+                    <div id="stats" class="stats">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+
+                <div class="filters-card">
+                    <h3><i class="fas fa-filter"></i> Filters</h3>
+                    <div class="filter-group">
+                        <label>Severity:</label>
+                        <select id="severityFilter">
+                            <option value="">All</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Hazard Type:</label>
+                        <select id="hazardFilter">
+                            <option value="">All</option>
+                            <option value="water_contamination">Water Contamination</option>
+                            <option value="waterborne_outbreak">Waterborne Outbreak</option>
+                            <option value="vector_borne">Vector Borne</option>
+                            <option value="environmental_triggers">Environmental Triggers</option>
+                            <option value="respiratory">Respiratory</option>
+                            <option value="foodborne">Foodborne</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="signals-card">
+                    <h3><i class="fas fa-list"></i> Signals</h3>
+                    <div id="signalsList" class="signals-list">
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Initialize map centered on Nepal
+        const map = L.map('map').setView([28.3949, 84.1240], 7);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let markers = [];
+        let signals = [];
+        let socket = null;
+
+        // Severity colors
+        const severityColors = {
+            critical: '#dc2626',
+            high: '#ea580c',
+            medium: '#d97706',
+            low: '#16a34a'
+        };
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            socket = io();
+
+            socket.on('connect', function() {
+                document.getElementById('connectionStatus').className = 'status connected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Live';
+            });
+
+            socket.on('disconnect', function() {
+                document.getElementById('connectionStatus').className = 'status disconnected';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+            });
+
+            socket.on('scan_complete', function(data) {
+                console.log('Scan completed:', data);
+                loadSignals();
+                loadStats();
+            });
+        }
+
+        // Load signals from API
+        async function loadSignals() {
+            try {
+                const response = await fetch('/api/signals');
+                const data = await response.json();
+                signals = data.signals;
+                
+                document.getElementById('lastScan').textContent = 
+                    data.last_scan ? `Last scan: ${new Date(data.last_scan).toLocaleString()}` : '';
+                
+                renderSignals();
+                renderMarkers();
+                loadStats();
+            } catch (error) {
+                console.error('Error loading signals:', error);
+            }
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                const statsHtml = `
+                    <div class="stat-item">
+                        <span class="stat-value">${stats.total_signals}</span>
+                        <span class="stat-label">Total Signals</span>
+                    </div>
+                    ${Object.entries(stats.by_severity).map(([sev, count]) => `
+                        <div class="stat-item">
+                            <span class="stat-value" style="color: ${severityColors[sev]}">${count}</span>
+                            <span class="stat-label">${sev.charAt(0).toUpperCase() + sev.slice(1)}</span>
+                        </div>
+                    `).join('')}
+                `;
+                
+                document.getElementById('stats').innerHTML = statsHtml;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Render signals list
+        function renderSignals() {
+            const severityFilter = document.getElementById('severityFilter').value;
+            const hazardFilter = document.getElementById('hazardFilter').value;
+            
+            let filtered = signals;
+            
+            if (severityFilter) {
+                filtered = filtered.filter(s => s.severity === severityFilter);
+            }
+            
+            if (hazardFilter) {
+                filtered = filtered.filter(s => s.hazards && s.hazards[hazardFilter]);
+            }
+            
+            const html = filtered.map((signal, index) => {
+                const location = signal.primary_location 
+                    ? `${signal.primary_location.name}, ${signal.primary_location.district}`
+                    : 'Unknown location';
+                
+                const hazards = Object.keys(signal.hazards || {}).join(', ');
+                
+                return `
+                    <div class="signal-item ${signal.severity}" data-index="${signals.indexOf(signal)}">
+                        <div class="signal-header">
+                            <span class="severity-badge ${signal.severity}">${signal.severity}</span>
+                            <span class="signal-score">Score: ${signal.score.toFixed(1)}</span>
+                        </div>
+                        <h4>${signal.article.title}</h4>
+                        <p class="signal-location"><i class="fas fa-map-marker-alt"></i> ${location}</p>
+                        <p class="signal-hazards"><i class="fas fa-exclamation-triangle"></i> ${hazards}</p>
+                        <p class="signal-source"><i class="fas fa-newspaper"></i> ${signal.article.source} - ${new Date(signal.article.published).toLocaleDateString()}</p>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('signalsList').innerHTML = html || '<p>No signals found</p>';
+        }
+
+        // Render map markers
+        function renderMarkers() {
+            // Clear existing markers
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            
+            signals.forEach(signal => {
+                if (signal.primary_location) {
+                    const loc = signal.primary_location;
+                    const color = severityColors[signal.severity] || '#6b7280';
+                    
+                    const marker = L.circleMarker([loc.lat, loc.lng], {
+                        radius: 8 + signal.score,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`
+                        <div class="popup-content">
+                            <h4>${signal.article.title}</h4>
+                            <p><strong>Location:</strong> ${loc.name}, ${loc.district}</p>
+                            <p><strong>Severity:</strong> ${signal.severity}</p>
+                            <p><strong>Score:</strong> ${signal.score.toFixed(1)}</p>
+                            <p><strong>Hazards:</strong> ${Object.keys(signal.hazards || {}).join(', ')}</p>
+                        </div>
+                    `);
+                    
+                    markers.push(marker);
+                }
+            });
+        }
+
+        // Trigger scan
+        document.getElementById('scanBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+            
+            try {
+                await fetch('/api/scan', { method: 'POST' });
+                await loadSignals();
+            } catch (error) {
+                console.error('Error scanning:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync"></i> Run Scan';
+            }
+        });
+
+        // Export CSV
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            window.location.href = '/api/signals/export';
+        });
+
+        // Filter change handlers
+        document.getElementById('severityFilter').addEventListener('change', renderSignals);
+        document.getElementById('hazardFilter').addEventListener('change', renderSignals);
+
+        // Initial load
+        initWebSocket();
+        loadSignals();
+    </script>
+</body>
+</html>

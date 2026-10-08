@@ -1,0 +1,36 @@
+{
+  "hazards": {
+    "water_contamination": {
+      "en": ["wastewater", "sewage", "pipe leak", "contaminated well", "dirty water", "water contamination", "sewage pipe", "water pollution"],
+      "ne": ["ढल", "ढल मिसावट", "दुषित पानी", "पानी प्रदूषण", "नराम्रो पानी"]
+    },
+    "waterborne_outbreak": {
+      "en": ["cholera", "diarrhea", "watery stool", "typhoid", "jaundice", "dysentery", "gastroenteritis"],
+      "ne": ["हैजा", "झाडापखाला", "आमाशय", "टाइफाइड", "पहेलो रोग", "डिसेन्ट्री"]
+    },
+    "vector_borne": {
+      "en": ["dengue", "mosquito breeding", "fumigation", "malaria", "chikungunya", "zika", "mosquito"],
+      "ne": ["डेंगु", "लामखुट्टे", "मछर", "मलेरिया", "चिकुनगुनिया", "जिका"]
+    },
+    "environmental_triggers": {
+      "en": ["flood", "landslide", "drainage overflow", "inundation", "mudslide", "flash flood", "water logging"],
+      "ne": ["बाढी", "पहिरो", "डुबान", "पानी जम्नु", "मैदान बग्नु", "छाला बाढी"]
+    },
+    "respiratory": {
+      "en": ["pneumonia", "flu", "influenza", "respiratory", "tuberculosis", "covid", "cough", "fever"],
+      "ne": ["सिक्सा", "इन्फ्लुएन्जा", "स्वासन", "क्षयरोग", "कोभिड", "खोकी", "ज्वरो"]
+    },
+    "foodborne": {
+      "en": ["food poisoning", "food contamination", "foodborne", "vomiting", "nausea", "food safety"],
+      "ne": ["खाना विषाक्त", "खाद्य प्रदूषण", "उल्टी", "बान्ता", "खाना सुरक्षा"]
+    }
+  },
+  "location_indicators": {
+    "en": ["ward", "municipality", "metropolitan", "sub-metropolitan", "district", "province", "village", "town", "city", "area", "zone", "region"],
+    "ne": ["वडा", "नगरपालिका", "महानगर", "उपमहानगर", "जिल्ला", "प्रदेश", "गाउँ", "शहर", "क्षेत्र", "अञ्चल"]
+  },
+  "severity_boosters": {
+    "en": ["outbreak", "epidemic", "surge", "spike", "emergency", "crisis", "alert", "confirmed", "death", "died", "hospitalized", "critical", "severe", "acute"],
+    "ne": ["प्रकोप", "महामारी", "वृद्धि", "आपतकालीन", "संकट", "चेतावनी", "पुष्ट", "मृत्यु", "मरेको", "अस्पताल", "गम्भीर", "तीव्र"]
+  }
+}
